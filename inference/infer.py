@@ -437,8 +437,8 @@ for inst_path in tracks:
                 continue
             # mix
             recons_mix = os.path.join(recons_mix_dir, os.path.basename(inst_path).replace('_itrack', '_mixed'))
-            vocal_stem, sr = sf.read(inst_path)
-            instrumental_stem, _ = sf.read(vocal_path)
+            vocal_stem, _ = sf.read(vocal_path)
+            instrumental_stem, sr = sf.read(inst_path)
             mix_stem = (vocal_stem + instrumental_stem) / 1
             sf.write(recons_mix, mix_stem, sr)
     except Exception as e:
