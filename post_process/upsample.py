@@ -193,10 +193,10 @@ def process_input(input_file,
         NOTE: If your super_resolution() returns an extra batch dimension (1, 1, T),
         we squeeze it out below.
         """
-        torchaudio.save("../ouput/post/intermediate_chunk.wav", chunk, sample_rate)
+        torchaudio.save("../output/post/intermediate_chunk.wav", chunk, sample_rate)
         result = super_resolution(
             audiosr_model,
-            "../ouput/post/intermediate_chunk.wav",
+            "../output/post/intermediate_chunk.wav",
             seed=seed,
             guidance_scale=guidance_scale,
             ddim_steps=ddim_steps
