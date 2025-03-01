@@ -23,7 +23,7 @@ from models.soundstream_hubert_new import SoundStream
 #from vocoder import build_codec_model, process_audio
 #from post_process_audio import replace_low_freq_with_energy_matched
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", 'post_process'))
-from upsample import process_input
+from post_process import post_process_stems
 
 parser = argparse.ArgumentParser()
 # Model Configuration:
@@ -424,13 +424,13 @@ for npy in stage2_result:
     decoded_waveform = decoded_waveform.cpu().squeeze(0)
     decodec_rlt.append(torch.as_tensor(decoded_waveform))
     decodec_rlt = torch.cat(decodec_rlt, dim=-1)
-    save_path = os.path.join(recons_output_dir, os.path.splitext(os.path.basename(npy))[0] + ".mp3")
+    save_path = os.path.join(recons_output_dir, os.path.splitext(os.path.basename(npy))[0] + ".wav")
     tracks.append(save_path)
     save_audio(decodec_rlt, save_path, 16000)
 # mix tracks
 for inst_path in tracks:
     try:
-        if (inst_path.endswith('.wav') or inst_path.endswith('.mp3')) \
+        if (inst_path.endswith('.wav') or inst_path.endswith('.wav')) \
             and '_itrack' in inst_path:
             # find pair
             vocal_path = inst_path.replace('_itrack', '_vtrack')
@@ -445,13 +445,7 @@ for inst_path in tracks:
     except Exception as e:
         print(e)
 
-process_input(recons_mix, 
-                "/app/output/post/upsampled_mix.wav", 
-                ddim_steps=50, 
-                guidance_scale=3.5, 
-                model_name="basic", 
-                device="auto", 
-                seed=45)
+post_process_stems(inst_path, vocal_path, "../output/")
 
 
 # vocoder to upsample audios

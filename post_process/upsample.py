@@ -19,18 +19,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-# -----------------------------
-# 1) Cross-fade Utility
-# -----------------------------
 def cross_fade(chunk1: torch.Tensor, chunk2: torch.Tensor, overlap_samples: int) -> torch.Tensor:
     fade_in = torch.linspace(0, 1, steps=overlap_samples, device=chunk1.device)
     fade_out = 1.0 - fade_in
     return (chunk1 * fade_out) + (chunk2 * fade_in)
 
 
-# -----------------------------
-# 2) Chunked Audio Transform
-# -----------------------------
 
 def transform_audio_chunked(
     audio: torch.Tensor,
@@ -151,9 +145,7 @@ def transform_audio_chunked(
 
     return processed_audio
 
-# -----------------------------
-# 3) Channel-by-Channel Transform
-# -----------------------------
+
 def transform_audio_per_channel(audio: torch.Tensor, transform_fn: callable) -> torch.Tensor:
     num_channels = audio.shape[0]
     processed_channels = []
@@ -167,9 +159,6 @@ def transform_audio_per_channel(audio: torch.Tensor, transform_fn: callable) -> 
     return torch.cat(processed_channels, dim=0)
 
 
-# -----------------------------
-# 4) Main
-# -----------------------------
 def process_input(input_file, 
                   output_file, 
                   ddim_steps=50, 
@@ -242,5 +231,5 @@ def process_input(input_file,
     logger.info(f"Saving output to {output_file}")
     torchaudio.save(output_file, waveform, OUTPUT_SAMPLE_RATE)
     logger.info("Done!")
-
-
+    
+    return waveform, OUTPUT_SAMPLE_RATE
