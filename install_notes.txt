@@ -27,8 +27,20 @@ pip install flash-attn --no-build-isolation
 cd inference
 git clone https://huggingface.co/m-a-p/xcodec_mini_infer
 
+------------------------end initial setup--------------------------------
+This part pertains to AudioSR
+using the audiosr library requires a different version of transformers which breaks 
+infer.py, because YuE needs support for attn_implementation.  
 
----------------------------------------------------------
+So after pip install audiosr, 
+i did pip install --upgrade transformers
+
+AudioSR also requires ffprobe which is part of ffmpeg
+apt-get install ffmpeg
+
+and that seemed to work when I ran audiosr from the command line. 
+Note outputs are only mono, even if inputs are stereo (or mono)
+--------------------some test examples-------------------------------------
 a test prompt is:
 # This is the CoT mode.
 [from the inference folder]

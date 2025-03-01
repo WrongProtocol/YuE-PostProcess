@@ -166,3 +166,4 @@ inference/xcodec_mini_infer
 inference/run_infer.sh
 YuE-PostProcess.code-workspace
 inference/xcodec_mini_infer
+post_process/*.wav

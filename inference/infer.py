@@ -20,9 +20,10 @@ from omegaconf import OmegaConf
 from codecmanipulator import CodecManipulator
 from mmtokenizer import _MMSentencePieceTokenizer
 from models.soundstream_hubert_new import SoundStream
-from vocoder import build_codec_model, process_audio
-from post_process_audio import replace_low_freq_with_energy_matched
-
+#from vocoder import build_codec_model, process_audio
+#from post_process_audio import replace_low_freq_with_energy_matched
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", 'post_process'))
+from upsample import process_input
 
 parser = argparse.ArgumentParser()
 # Model Configuration:
@@ -444,48 +445,57 @@ for inst_path in tracks:
     except Exception as e:
         print(e)
 
-# vocoder to upsample audios
-vocal_decoder, inst_decoder = build_codec_model(args.config_path, args.vocal_decoder_path, args.inst_decoder_path)
-vocoder_output_dir = os.path.join(args.output_dir, 'vocoder')
-vocoder_stems_dir = os.path.join(vocoder_output_dir, 'stems')
-vocoder_mix_dir = os.path.join(vocoder_output_dir, 'mix')
-os.makedirs(vocoder_mix_dir, exist_ok=True)
-os.makedirs(vocoder_stems_dir, exist_ok=True)
-for npy in stage2_result:
-    if '_itrack' in npy:
-        # Process instrumental
-        instrumental_output = process_audio(
-            npy,
-            os.path.join(vocoder_stems_dir, 'itrack.mp3'),
-            args.rescale,
-            args,
-            inst_decoder,
-            codec_model
-        )
-    else:
-        # Process vocal
-        vocal_output = process_audio(
-            npy,
-            os.path.join(vocoder_stems_dir, 'vtrack.mp3'),
-            args.rescale,
-            args,
-            vocal_decoder,
-            codec_model
-        )
-# mix tracks
-try:
-    mix_output = instrumental_output + vocal_output
-    vocoder_mix = os.path.join(vocoder_mix_dir, os.path.basename(recons_mix))
-    save_audio(mix_output, vocoder_mix, 44100, args.rescale)
-    print(f"Created mix: {vocoder_mix}")
-except RuntimeError as e:
-    print(e)
-    print(f"mix {vocoder_mix} failed! inst: {instrumental_output.shape}, vocal: {vocal_output.shape}")
+process_input(recons_mix, 
+                "/app/output/post/upsampled_mix.wav", 
+                ddim_steps=50, 
+                guidance_scale=3.5, 
+                model_name="basic", 
+                device="auto", 
+                seed=45)
 
-# Post process
-replace_low_freq_with_energy_matched(
-    a_file=recons_mix,     # 16kHz
-    b_file=vocoder_mix,     # 48kHz
-    c_file=os.path.join(args.output_dir, os.path.basename(recons_mix)),
-    cutoff_freq=5500.0
-)
+
+# vocoder to upsample audios
+# vocal_decoder, inst_decoder = build_codec_model(args.config_path, args.vocal_decoder_path, args.inst_decoder_path)
+# vocoder_output_dir = os.path.join(args.output_dir, 'vocoder')
+# vocoder_stems_dir = os.path.join(vocoder_output_dir, 'stems')
+# vocoder_mix_dir = os.path.join(vocoder_output_dir, 'mix')
+# os.makedirs(vocoder_mix_dir, exist_ok=True)
+# os.makedirs(vocoder_stems_dir, exist_ok=True)
+# for npy in stage2_result:
+#     if '_itrack' in npy:
+#         # Process instrumental
+#         instrumental_output = process_audio(
+#             npy,
+#             os.path.join(vocoder_stems_dir, 'itrack.mp3'),
+#             args.rescale,
+#             args,
+#             inst_decoder,
+#             codec_model
+#         )
+#     else:
+#         # Process vocal
+#         vocal_output = process_audio(
+#             npy,
+#             os.path.join(vocoder_stems_dir, 'vtrack.mp3'),
+#             args.rescale,
+#             args,
+#             vocal_decoder,
+#             codec_model
+#         )
+# # mix tracks
+# try:
+#     mix_output = instrumental_output + vocal_output
+#     vocoder_mix = os.path.join(vocoder_mix_dir, os.path.basename(recons_mix))
+#     save_audio(mix_output, vocoder_mix, 44100, args.rescale)
+#     print(f"Created mix: {vocoder_mix}")
+# except RuntimeError as e:
+#     print(e)
+#     print(f"mix {vocoder_mix} failed! inst: {instrumental_output.shape}, vocal: {vocal_output.shape}")
+
+# # Post process
+# replace_low_freq_with_energy_matched(
+#     a_file=recons_mix,     # 16kHz
+#     b_file=vocoder_mix,     # 48kHz
+#     c_file=os.path.join(args.output_dir, os.path.basename(recons_mix)),
+#     cutoff_freq=5500.0
+# )
