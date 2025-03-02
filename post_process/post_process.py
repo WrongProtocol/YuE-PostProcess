@@ -1,3 +1,10 @@
+# Carmine Silano
+# Mar 1, 2025
+
+# post processing module originally intended to process 
+# the output of YuE Stage 2 stems
+# but can be used with any inst + vox stem.
+
 import soundfile as sf
 import numpy as np
 import torch
@@ -9,6 +16,7 @@ from analysis import analyze_audio
 from pedalboard import Pedalboard, Compressor, Distortion, HighShelfFilter, HighpassFilter, PeakFilter, Gain, Chorus, LadderFilter, Phaser, Convolution, Reverb, Delay, Limiter
 from pedalboard.io import AudioFile
 from buss_compressor import buss_compressor
+from lufs_leveler import level_to_lufs
 
 # Butterworth High-pass and Low-pass filters
 def butter_filter(data, cutoff, sr, filter_type, order=4):
@@ -72,6 +80,8 @@ def stereo_upmix_stems(npInst, npVox, samplerate, output_dir):
     print("Stereo files saved.")
     return sumInst, sumVox
 
+# create some space for a vocal to sit on top of. 
+# also give it some harmonics
 def process_instrumental(audio, samplerate):
     fxchain = Pedalboard([
         Compressor(threshold_db=-1.0, 
@@ -98,7 +108,7 @@ def process_instrumental(audio, samplerate):
                         gain_db = -4.3, 
                         q = 0.78),
         #Distortion(drive_db=3),
-        Gain(gain_db=-1.0)
+        #Gain(gain_db=-1.0)
         #Limiter(threshold_db=-0.1)
     ])
 
@@ -106,6 +116,7 @@ def process_instrumental(audio, samplerate):
     chain_fxed = fxchain(audio, samplerate)
     return chain_fxed
 
+#give the vocals some clarity, a little more of a processed feel
 def process_vocals(audio, samplerate):
     fxchain = Pedalboard([
         HighpassFilter(cutoff_frequency_hz = 100),
@@ -134,7 +145,7 @@ def process_vocals(audio, samplerate):
                width=1.0,
                freeze_mode=0.0),
         #Distortion(drive_db=.2),
-        Gain(gain_db=-5.0)
+        Gain(gain_db=-6.0)
         #Limiter(threshold_db=-0.1)
     ])
 
@@ -143,9 +154,16 @@ def process_vocals(audio, samplerate):
     #effected = stereo_upmix(chain_fxed, samplerate, 32)
     return chain_fxed
 
+# This baby is just to make sure nothing clips on final export
+def brickwall_limit(audio, samplerate):
+    fxchain = Pedalboard([Limiter(threshold_db=-0.2)])
+    chain_fxed = fxchain(audio, samplerate)
+    return chain_fxed
+
 def post_process_stems(inst_path, 
                        vocal_path, 
                        output_dir, 
+                       final_output_path,
                        ddim_steps=50, 
                        guidance_scale=3.5, 
                        model_name="basic", 
@@ -164,10 +182,7 @@ def post_process_stems(inst_path,
     npVox = upVoxWaveform.detach().cpu().numpy()
 
     sumInst, sumVox = stereo_upmix_stems(npInst, npVox, samplerate, output_dir)
-
     satInst = dynamic_saturator(sumInst, 80)
-
-
     sat_out = (satInst + sumVox) / 2 #saturated inst + vocal
     save_wav_from_numpy(output_dir + "/sat_sum.wav", sat_out, samplerate)
 
@@ -179,17 +194,27 @@ def post_process_stems(inst_path,
     pbInst = process_instrumental(sumInst, samplerate)
     pbVox = process_vocals(sumVox, samplerate)
 
-    pubSum = (pbInst + pbVox) / 2
-    save_wav_from_numpy(output_dir + "/pb_sum.wav", pubSum, samplerate)
+    pbSum = (pbInst + pbVox) / 2
+    save_wav_from_numpy(output_dir + "/pb_sum.wav", pbSum, samplerate)
 
     bcAudio = buss_compressor(samplerate, 
-                            pubSum, 
-                            threshold_db=-5.0, 
+                            pbSum, 
+                            threshold_db=-8.0, 
                             ratio=4.0, 
                             attack_us=20000.0, 
                             release_ms=250.0, 
                             mix_percent=100.0)
-    save_wav_from_numpy(output_dir + "/buss_compressed.wav", pubSum, samplerate)
+    
+    save_wav_from_numpy(output_dir + "/buss_compressed.wav", bcAudio, samplerate)
+
+    lufsAudio = level_to_lufs(bcAudio, samplerate, target_lufs=-11)
+    brickwallAudio = brickwall_limit(lufsAudio, samplerate)
+
+    # final output area should be up a dir (/output/)
+    save_wav_from_numpy(final_output_path, brickwallAudio, samplerate)
+
+
+
 
 ##just for testing
 def main():

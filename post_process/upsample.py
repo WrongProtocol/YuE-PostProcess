@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
-#upsample.py pre-processing / chunking code from Tobi on discord from server twoshot.app
-#updated by @WrongProtocol
+#upsample.py pre-processing / chunking code 
+# from Tobi on discord from server "twoshot.app"
+# updated by Carmine Silano
 
 import os
 import logging

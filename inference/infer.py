@@ -437,16 +437,24 @@ for inst_path in tracks:
             if not os.path.exists(vocal_path):
                 continue
             # mix
-            recons_mix = os.path.join(recons_mix_dir, os.path.basename(inst_path).replace('_itrack', '_mixed'))
+            recons_mix_path = os.path.join(recons_mix_dir, os.path.basename(inst_path).replace('_itrack', '_mixed'))
             vocal_stem, _ = sf.read(vocal_path)
             instrumental_stem, sr = sf.read(inst_path)
-            mix_stem = (vocal_stem + instrumental_stem) / 1
-            sf.write(recons_mix, mix_stem, sr)
+            mix_stem = (vocal_stem + instrumental_stem) / 2 #safer to divide by 2 to avoid clipping; can make up gain later.
+            sf.write(recons_mix_path, mix_stem, sr)
     except Exception as e:
         print(e)
 
-post_process_stems(inst_path, vocal_path, "../output/post")
+#before we go into post-process, we have to free up some VRAM 
+model_stage2.cpu()
+del model_stage2
+torch.cuda.empty_cache()
 
+final_output_path = inst_path.replace('_itrack', 'final')
+# push stage2's reconstructed wavs into post-processing pipeline
+post_process_stems(inst_path, vocal_path, "../output/post", final_output_path)
+
+#commenting out the  vocoder / vocos part of the pipeline
 
 # vocoder to upsample audios
 # vocal_decoder, inst_decoder = build_codec_model(args.config_path, args.vocal_decoder_path, args.inst_decoder_path)
