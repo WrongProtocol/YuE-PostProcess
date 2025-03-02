@@ -445,7 +445,7 @@ for inst_path in tracks:
     except Exception as e:
         print(e)
 
-post_process_stems(inst_path, vocal_path, "../output/")
+post_process_stems(inst_path, vocal_path, "../output/post")
 
 
 # vocoder to upsample audios
