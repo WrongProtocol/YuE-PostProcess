@@ -20,7 +20,7 @@ for ((i=0; i<iterations; i++)); do
     --stage2_model m-a-p/YuE-s2-1B-general \
     --genre_txt ../prompt_egs/genre.txt \
     --lyrics_txt ../prompt_egs/lyrics.txt \
-    --run_n_segments 3 \
+    --run_n_segments 4 \
     --stage2_batch_size 5 \
     --output_dir ../output \
     --max_new_tokens 3000 \

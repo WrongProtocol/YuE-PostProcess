@@ -5,9 +5,11 @@
 # the output of YuE Stage 2 stems
 # but can be used with any inst + vox stem.
 
+import os
 import soundfile as sf
 import numpy as np
 import torch
+import time
 from scipy.signal import butter, lfilter
 from upsample import process_input
 from stereo_upmix import MonoToStereoUpmixer
@@ -77,6 +79,12 @@ def stereo_upmix_stems(npInst, npVox, samplerate, output_dir):
     save_wav_from_numpy(output_dir + "/sum_stereo_inst.wav", sumInst, samplerate)
     save_wav_from_numpy(output_dir + "/sum_stereo_vox.wav", sumVox, samplerate)
 
+    #I generally never do this sort of thing, but os isn't writing 
+    # files to disk right away and its causing issues down the line
+    # when other parts of the pipeline go to read the file. It's like
+    # the OS needs a second to flush/write it to disk
+    time.sleep(1)
+
     print("Stereo files saved.")
     return sumInst, sumVox
 
@@ -122,13 +130,13 @@ def process_vocals(audio, samplerate):
         HighpassFilter(cutoff_frequency_hz = 100),
         PeakFilter(cutoff_frequency_hz = 271, 
                    q = 1.21, 
-                   gain_db = -2.1),
+                   gain_db = -2.5),
         PeakFilter(cutoff_frequency_hz = 518, 
                    q = 0.31, 
                    gain_db = -0.6),
         PeakFilter(cutoff_frequency_hz = 949, 
                    q = 0.84, 
-                   gain_db = -5.0),
+                   gain_db = -3.0),
         PeakFilter(cutoff_frequency_hz = 2696, 
                    q = 1.0, 
                    gain_db = -2.7),
@@ -181,18 +189,18 @@ def post_process_stems(inst_path,
     npInst = upInstWaveform.detach().cpu().numpy()
     npVox = upVoxWaveform.detach().cpu().numpy()
 
-    sumInst, sumVox = stereo_upmix_stems(npInst, npVox, samplerate, output_dir)
-    satInst = dynamic_saturator(sumInst, 80)
-    sat_out = (satInst + sumVox) / 2 #saturated inst + vocal
-    save_wav_from_numpy(output_dir + "/sat_sum.wav", sat_out, samplerate)
+    sumlfhfInst, sumlfhfVox = stereo_upmix_stems(npInst, npVox, samplerate, output_dir)
+    #satInst = dynamic_saturator(sumInst, 50)
+    #sat_out = (satInst + sumVox) / 2 #saturated inst + vocal
+    #save_wav_from_numpy(output_dir + "/sat_sum.wav", sat_out, samplerate)
 
-    inst_analysis = analyze_audio(output_dir + "/sum_stereo_inst.wav")
-    vox_analysis = analyze_audio(output_dir + "/sum_stereo_vox.wav")
+    #inst_analysis = analyze_audio(output_dir + "/sum_stereo_inst.wav")
+    #vox_analysis = analyze_audio(output_dir + "/sum_stereo_vox.wav")
 
     #TODO look at analysis and use it to drive rules and changes to the signal
 
-    pbInst = process_instrumental(sumInst, samplerate)
-    pbVox = process_vocals(sumVox, samplerate)
+    pbInst = process_instrumental(sumlfhfInst, samplerate)
+    pbVox = process_vocals(sumlfhfVox, samplerate)
 
     pbSum = (pbInst + pbVox) / 2
     save_wav_from_numpy(output_dir + "/pb_sum.wav", pbSum, samplerate)
@@ -222,7 +230,8 @@ def main():
     print("Running the script directly FOR TESTING!")
     post_process_stems("../output/post/recons_inst.wav", #file for testing
                        "../output/post/recons_vox.wav", #file for testing
-                       "../output/post") #dir for testing output
+                       "../output/post",
+                       "../output/INFERENCE_TEST.wav") #dir for testing output
 
 if __name__ == "__main__":
     main()
