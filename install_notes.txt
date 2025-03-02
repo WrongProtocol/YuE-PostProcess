@@ -40,6 +40,20 @@ apt-get install ffmpeg
 
 and that seemed to work when I ran audiosr from the command line. 
 Note outputs are only mono, even if inputs are stereo (or mono)
+-----------------------end audioSR setup-------------
+analysis required some additinal plugins 
+pip install essentia
+pip install cython
+pip install madmom
+
+this part is a weird one....was getting a crash, and the fix is:
+nano /root/miniconda3/envs/ai/lib/python3.11/site-packages/madmom/processors.py
+find the line that says "from collections import MutableSequence"
+and replace it with
+"from collections.abc import MutableSequence"
+-------------------------end analysis setup----------------
+pedalboard libraries
+pip install pedalboard
 --------------------some test examples-------------------------------------
 a test prompt is:
 # This is the CoT mode.

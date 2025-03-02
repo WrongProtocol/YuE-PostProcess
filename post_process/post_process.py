@@ -5,6 +5,8 @@ from scipy.signal import butter, lfilter
 from upsample import process_input
 from stereo_upmix import MonoToStereoUpmixer
 from saturate import dynamic_saturator
+from analysis import analyze_audio
+
 
 # Butterworth High-pass and Low-pass filters
 def butter_filter(data, cutoff, sr, filter_type, order=4):
@@ -68,6 +70,8 @@ def stereo_upmix_stems(npInst, npVox, samplerate, output_dir):
     print("Stereo files saved.")
     return sumInst, sumVox
 
+
+
 def post_process_stems(inst_path, 
                        vocal_path, 
                        output_dir, 
@@ -92,16 +96,24 @@ def post_process_stems(inst_path,
 
     satInst = dynamic_saturator(sumInst, 80)
 
-    finalOut = satInst + sumVox
+    inst_analysis = analyze_audio(output_dir + "/sum_stereo_inst.wav")
+    vox_analysis = analyze_audio(output_dir + "/sum_stereo_vox.wav")
+
+    
+
+    finalOut = (satInst + sumVox) / 2
     save_wav_from_numpy(output_dir + "/output.wav", finalOut, samplerate)
+
+
+
 
 ##just for testing
 def main():
     """Execute when the script is run directly TESTING ONLY."""
     print("Running the script directly FOR TESTING!")
-    post_process_stems("../output/post/recons_inst.mp3", #file
-                       "../output/post/recons_vox.mp3", #file
-                       "../output/post") #dir
+    post_process_stems("../output/post/recons_inst.wav", #file for testing
+                       "../output/post/recons_vox.wav", #file for testing
+                       "../output/post") #dir for testing output
 
 if __name__ == "__main__":
     main()
