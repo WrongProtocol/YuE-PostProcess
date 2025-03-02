@@ -8,6 +8,7 @@ from saturate import dynamic_saturator
 from analysis import analyze_audio
 from pedalboard import Pedalboard, Compressor, Distortion, HighShelfFilter, HighpassFilter, PeakFilter, Gain, Chorus, LadderFilter, Phaser, Convolution, Reverb, Delay, Limiter
 from pedalboard.io import AudioFile
+from buss_compressor import buss_compressor
 
 # Butterworth High-pass and Low-pass filters
 def butter_filter(data, cutoff, sr, filter_type, order=4):
@@ -97,7 +98,7 @@ def process_instrumental(audio, samplerate):
                         gain_db = -4.3, 
                         q = 0.78),
         #Distortion(drive_db=3),
-        #Gain(gain_db=0)
+        Gain(gain_db=-1.0)
         #Limiter(threshold_db=-0.1)
     ])
 
@@ -133,7 +134,7 @@ def process_vocals(audio, samplerate):
                width=1.0,
                freeze_mode=0.0),
         #Distortion(drive_db=.2),
-        #Gain(gain_db=0)
+        Gain(gain_db=-5.0)
         #Limiter(threshold_db=-0.1)
     ])
 
@@ -173,14 +174,22 @@ def post_process_stems(inst_path,
     inst_analysis = analyze_audio(output_dir + "/sum_stereo_inst.wav")
     vox_analysis = analyze_audio(output_dir + "/sum_stereo_vox.wav")
 
+    #TODO look at analysis and use it to drive rules and changes to the signal
+
     pbInst = process_instrumental(sumInst, samplerate)
     pbVox = process_vocals(sumVox, samplerate)
 
     pubSum = (pbInst + pbVox) / 2
     save_wav_from_numpy(output_dir + "/pb_sum.wav", pubSum, samplerate)
 
-
-
+    bcAudio = buss_compressor(samplerate, 
+                            pubSum, 
+                            threshold_db=-5.0, 
+                            ratio=4.0, 
+                            attack_us=20000.0, 
+                            release_ms=250.0, 
+                            mix_percent=100.0)
+    save_wav_from_numpy(output_dir + "/buss_compressed.wav", pubSum, samplerate)
 
 ##just for testing
 def main():
