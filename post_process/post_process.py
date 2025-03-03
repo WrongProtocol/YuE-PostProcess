@@ -92,17 +92,17 @@ def stereo_upmix_stems(npInst, npVox, samplerate, output_dir):
 # also give it some harmonics
 def process_instrumental(audio, samplerate):
     fxchain = Pedalboard([
-        Compressor(threshold_db=-1.0, 
-                   ratio=1.5, 
+        Compressor(threshold_db=-6.0, 
+                   ratio=2.0, 
                    attack_ms=5.0, 
                    release_ms=100.0),
         HighpassFilter(cutoff_frequency_hz = 36),
         PeakFilter(cutoff_frequency_hz = 111, 
                    q = 0.8, 
-                   gain_db = 2.7),
+                   gain_db = 0.6),
         PeakFilter(cutoff_frequency_hz = 406, 
                    q = 2.0, 
-                   gain_db = -3.5),
+                   gain_db = -2.5),
         PeakFilter(cutoff_frequency_hz = 1434, 
                    q = 2.43, 
                    gain_db = -1.3),
@@ -112,8 +112,8 @@ def process_instrumental(audio, samplerate):
         PeakFilter(cutoff_frequency_hz = 5220, 
                    q = 0.63, 
                    gain_db = -2.5),
-        HighShelfFilter(cutoff_frequency_hz = 11000, 
-                        gain_db = -4.3, 
+        HighShelfFilter(cutoff_frequency_hz = 9300, 
+                        gain_db = -3.3, 
                         q = 0.78),
         #Distortion(drive_db=3),
         #Gain(gain_db=-1.0)
@@ -130,7 +130,7 @@ def process_vocals(audio, samplerate):
         HighpassFilter(cutoff_frequency_hz = 100),
         PeakFilter(cutoff_frequency_hz = 271, 
                    q = 1.21, 
-                   gain_db = -2.5),
+                   gain_db = -3.5),
         PeakFilter(cutoff_frequency_hz = 518, 
                    q = 0.31, 
                    gain_db = -0.6),
@@ -153,7 +153,7 @@ def process_vocals(audio, samplerate):
                width=1.0,
                freeze_mode=0.0),
         #Distortion(drive_db=.2),
-        Gain(gain_db=-6.0)
+        Gain(gain_db=-8.0)
         #Limiter(threshold_db=-0.1)
     ])
 
@@ -207,7 +207,7 @@ def post_process_stems(inst_path,
 
     bcAudio = buss_compressor(samplerate, 
                             pbSum, 
-                            threshold_db=-8.0, 
+                            threshold_db=-4.0, 
                             ratio=4.0, 
                             attack_us=20000.0, 
                             release_ms=250.0, 
@@ -215,11 +215,11 @@ def post_process_stems(inst_path,
     
     save_wav_from_numpy(output_dir + "/buss_compressed.wav", bcAudio, samplerate)
 
-    lufsAudio = level_to_lufs(bcAudio, samplerate, target_lufs=-11)
-    brickwallAudio = brickwall_limit(lufsAudio, samplerate)
+    lufsAudio = level_to_lufs(bcAudio, samplerate, target_lufs=-12)
+    # brickwallAudio = brickwall_limit(lufsAudio, samplerate)
 
     # final output area should be up a dir (/output/)
-    save_wav_from_numpy(final_output_path, brickwallAudio, samplerate)
+    save_wav_from_numpy(final_output_path, lufsAudio, samplerate)
 
 
 
