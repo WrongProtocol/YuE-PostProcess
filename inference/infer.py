@@ -155,9 +155,8 @@ prompt_texts += lyrics
 random_id = uuid.uuid4()
 output_seq = None
 # Here is suggested decoding config
-# changed this; tighted it up to be more predictable; hoping to get better rhythms
 top_p = 0.89
-temperature = 0.7
+temperature = 1
 repetition_penalty = args.repetition_penalty
 # special tokens
 start_of_segment = mmtokenizer.tokenize('[start_of_segment]')
