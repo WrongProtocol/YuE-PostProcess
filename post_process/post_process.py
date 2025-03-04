@@ -20,6 +20,33 @@ from pedalboard.io import AudioFile
 from buss_compressor import buss_compressor
 from lufs_leveler import level_to_lufs
 
+# a quick utility for going "up a directory" in a path. 
+# It keeps the file name the same, just moves the path up one dir.
+def up_a_dir(filepath):
+    """
+    Moves the file path up one directory while preserving the file name.
+    
+    For example, given:
+      "/app/output/recons/abc123defg.wav"
+    the output will be:
+      "/app/output/abc123defg.wav"
+    
+    Parameters:
+      filepath (str): The original file path.
+    
+    Returns:
+      str: The file path moved up one directory.
+    """
+    # Get the current directory (i.e. the parent directory of the file)
+    current_dir = os.path.dirname(filepath)
+    # Get the parent directory of the current directory
+    parent_dir = os.path.dirname(current_dir)
+    # Get the file name from the original filepath
+    filename = os.path.basename(filepath)
+    # Combine the parent directory with the file name
+    new_path = os.path.join(parent_dir, filename)
+    return new_path
+
 # Butterworth High-pass and Low-pass filters
 def butter_filter(data, cutoff, sr, filter_type, order=4):
     """Applies a Butterworth high-pass or low-pass filter."""
@@ -45,7 +72,7 @@ def mono_clone_to_stereo(mono_waveform):
 
 def save_wav_from_numpy(filename, waveform, sample_rate):
     """Saves a NumPy array as a WAV file."""
-    print(f"save_wav_from_numpy : waveform shape: {waveform.shape}")
+    print(f"save_wav_from_numpy : {filename} waveform shape: {waveform.shape}")
     sf.write(filename, waveform, sample_rate)
 
 def stereo_upmix_stems(npInst, npVox, samplerate, output_dir):
@@ -117,7 +144,7 @@ def process_instrumental(audio, samplerate):
                         q = 0.78),
         #Distortion(drive_db=3),
         #Gain(gain_db=-1.0)
-        #Limiter(threshold_db=-0.1)
+        Limiter(threshold_db=-0.1)
     ])
 
     #dist_fxed = distort_exciter(audio, samplerate, drive=16, distortion=33, highpass=4800, wet_mix=-6, dry_mix=0)
@@ -128,6 +155,9 @@ def process_instrumental(audio, samplerate):
 def process_vocals(audio, samplerate):
     fxchain = Pedalboard([
         HighpassFilter(cutoff_frequency_hz = 100),
+        PeakFilter(cutoff_frequency_hz = 150, 
+                   q = 1.21, 
+                   gain_db = -1.5),
         PeakFilter(cutoff_frequency_hz = 271, 
                    q = 1.21, 
                    gain_db = -3.5),
@@ -136,10 +166,10 @@ def process_vocals(audio, samplerate):
                    gain_db = -0.6),
         PeakFilter(cutoff_frequency_hz = 949, 
                    q = 0.84, 
-                   gain_db = -3.0),
+                   gain_db = -1.0),
         PeakFilter(cutoff_frequency_hz = 2696, 
                    q = 1.0, 
-                   gain_db = -2.7),
+                   gain_db = -1.7),
         HighShelfFilter(cutoff_frequency_hz = 10334, 
                         gain_db = 1.1, 
                         q = 0.21),
@@ -153,8 +183,8 @@ def process_vocals(audio, samplerate):
                width=1.0,
                freeze_mode=0.0),
         #Distortion(drive_db=.2),
-        Gain(gain_db=-8.0)
-        #Limiter(threshold_db=-0.1)
+        Gain(gain_db=-8.0),
+        Limiter(threshold_db=-0.1)
     ])
 
     #dist_fxed = distort_exciter(audio, samplerate)
@@ -176,7 +206,7 @@ def post_process_stems(inst_path,
                        guidance_scale=3.5, 
                        model_name="basic", 
                        device="auto", 
-                       seed=45):
+                       seed=42):
     
     # Process input upsampling
     upInstWaveform, samplerate = process_input(inst_path, output_dir + "/upsampled_inst.wav",
@@ -190,16 +220,17 @@ def post_process_stems(inst_path,
     npVox = upVoxWaveform.detach().cpu().numpy()
 
     sumlfhfInst, sumlfhfVox = stereo_upmix_stems(npInst, npVox, samplerate, output_dir)
-    #satInst = dynamic_saturator(sumInst, 50)
-    #sat_out = (satInst + sumVox) / 2 #saturated inst + vocal
-    #save_wav_from_numpy(output_dir + "/sat_sum.wav", sat_out, samplerate)
+    satInst = dynamic_saturator(sumlfhfInst, 10)
+    # note i did not saturate the vox. They never seem to need that extra effect.
+    sat_out = (satInst + sumlfhfVox) / 2 #saturated inst + vocal
+    save_wav_from_numpy(output_dir + "/sat_sum.wav", sat_out, samplerate)
 
     #inst_analysis = analyze_audio(output_dir + "/sum_stereo_inst.wav")
     #vox_analysis = analyze_audio(output_dir + "/sum_stereo_vox.wav")
 
     #TODO look at analysis and use it to drive rules and changes to the signal
 
-    pbInst = process_instrumental(sumlfhfInst, samplerate)
+    pbInst = process_instrumental(satInst, samplerate)
     pbVox = process_vocals(sumlfhfVox, samplerate)
 
     pbSum = (pbInst + pbVox) / 2
@@ -219,7 +250,7 @@ def post_process_stems(inst_path,
     # brickwallAudio = brickwall_limit(lufsAudio, samplerate)
 
     # final output area should be up a dir (/output/)
-    save_wav_from_numpy(final_output_path, lufsAudio, samplerate)
+    save_wav_from_numpy(up_a_dir(final_output_path), lufsAudio, samplerate)
 
 
 

@@ -1,3 +1,203 @@
+# YuE-PostProc: Post-Processing Module
+
+The YuE-PostProc module is the post-processing component of **YuE**, an AI music generator. This module is designed to take instrumental and vocal stems (or any similar audio stems) produced by earlier stages and apply a series of audio processing techniques—such as upsampling, stereo imaging, dynamic saturation, compression, EQ, and loudness leveling—to produce a finished, cohesive, and professional-sounding output.
+
+---
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Module Components](#module-components)
+  - [Upsampling](#upsampling)
+  - [Stereo Upmixing](#stereo-upmixing)
+  - [Dynamic Saturation](#dynamic-saturation)
+  - [Loudness Leveling](#loudness-leveling)
+  - [Buss Compression](#buss-compression)
+  - [Additional Effects Processing](#additional-effects-processing)
+- [Workflow](#workflow)
+- [Installation and Dependencies](#installation-and-dependencies)
+- [Usage](#usage)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+- [Credits](#credits)
+
+---
+
+## Overview
+
+The post-processing pipeline in YuE-PostProc transforms raw upsampled audio stems into a polished final mix. It is tailored for the output of YuE’s Stage 2 but can be applied to any instrumental or vocal stem. The process includes:
+- **Upsampling**: Increasing the audio resolution using deep learning–based super-resolution.
+- **Stereo Upmixing**: Converting mono signals to stereo using a delay and sum technique.
+- **Dynamic Saturation**: Applying a dynamic, sine-shaped saturator to add warmth and character.
+- **EQ and Effects**: Using a chain of effects (compression, EQ filters, reverb, etc.) to refine the sound.
+- **Dynamic Compression & LUFS Leveling**: Ensuring the final mix is dynamically controlled and meets target loudness standards.
+
+---
+
+## Features
+
+- **Advanced Upsampling**: Utilizes a chunked processing approach with overlap cross-fading to apply super-resolution to audio chunks (see [upsample.py](#upsample)).
+- **Stereo Imaging**: Upmixes mono signals to stereo with a delay-based technique accelerated by Numba for efficiency ([stereo_upmix.py](#stereo-upmixing)).
+- **Dynamic Saturation**: Applies a dynamic saturator effect based on sine shaping to add harmonic content and character to the sound ([saturate.py](#dynamic-saturation)).
+- **Loudness Normalization**: Adjusts the integrated loudness to a target LUFS level using the ITU-R BS.1770 standard and the pyloudnorm package ([lufs_leveler.py](#loudness-leveling)).
+- **Buss Compression**: Implements a dynamic range compressor using an accelerated algorithm to glue the mix together ([buss_compressor.py](#buss-compression)).
+- **Flexible Effect Chains**: Uses Pedalboard for additional instrument and vocal processing, including EQ, high-pass/low-pass filtering, reverb, delay, and limiting.
+  
+---
+
+## Module Components
+
+### Upsampling
+
+- **File:** `upsample.py`
+- **Functionality:**  
+  - Processes input audio using a deep learning–based super-resolution technique.
+  - Divides the audio into overlapping chunks, applies a transformation function (super-resolution), and cross-fades between chunks to ensure smooth transitions.
+  - Normalizes and trims the output to maintain the original duration.
+- **Key Parameters:** `ddim_steps`, `guidance_scale`, `model_name`, `device`, and `seed`.
+
+### Stereo Upmixing
+
+- **File:** `stereo_upmix.py`
+- **Functionality:**  
+  - Converts mono audio signals to stereo using a delay-based algorithm.
+  - Uses a circular delay buffer and a delay/sum technique to create spatial separation between the channels.
+  - Accelerated using Numba JIT compilation for real-time processing.
+
+### Dynamic Saturation
+
+- **File:** `saturate.py`
+- **Functionality:**  
+  - Applies dynamic saturation to stereo audio.
+  - Uses sine-based waveshaping to achieve a warm, harmonically rich sound.
+  - Allows adjustment of the wet/dry mix via the `mix_pct` parameter.
+
+### Loudness Leveling
+
+- **File:** `lufs_leveler.py`
+- **Functionality:**  
+  - Measures the integrated loudness of stereo audio using the ITU-R BS.1770 standard.
+  - Adjusts gain to achieve a target LUFS level.
+  - Prints the measured LUFS and the gain applied for transparency in processing.
+
+### Buss Compression
+
+- **File:** `buss_compressor.py`
+- **Functionality:**  
+  - Applies dynamic range compression to the audio signal.
+  - Implements smoothing for attack and release times, computing gain reduction on a per-sample basis.
+  - Uses Numba to accelerate processing, ensuring minimal latency.
+
+### Additional Effects Processing
+
+- **File:** `post_process.py`
+- **Functionality:**  
+  - Serves as the central hub that ties together upsampling, stereo upmixing, saturation, EQ, and compression.
+  - Applies additional processing to both instrumental and vocal stems using Pedalboard:
+    - **Instrumental Chain:** Compression, high-pass filtering, multiple peak filters, high-shelf filtering, and limiting.
+    - **Vocal Chain:** High-pass filtering, multiple peak filters, reverb, delay, gain adjustment, and limiting.
+  - Summates processed stems and applies final buss compression and LUFS leveling.
+  - Includes utility functions for file I/O and directory handling.
+
+---
+
+## Workflow
+
+1. **Upsampling:**  
+   - Both instrumental and vocal stems are upsampled using the `process_input` function from `upsample.py`.
+2. **Stereo Processing:**  
+   - The mono signals are filtered and upmixed to stereo via the `stereo_upmix_stems` function in `post_process.py`.
+3. **Saturation and Mixing:**  
+   - A dynamic saturator is applied to the instrumental stem and then blended with the vocal stem.
+4. **Effects Processing:**  
+   - Instrumental and vocal signals are processed with dedicated Pedalboard effect chains.
+5. **Compression & Leveling:**  
+   - The combined mix is compressed using the buss compressor and then loudness-normalized to the target LUFS.
+6. **Output:**  
+   - Final processed audio is saved in the desired output directory.
+
+---
+
+## Installation and Dependencies
+
+Ensure you have the following dependencies installed:
+
+- **Python Packages:**  
+  - `numpy`
+  - `soundfile`
+  - `pyloudnorm`
+  - `torchaudio`
+  - `torch`
+  - `scipy`
+  - `numba`
+  - `pedalboard`
+  - _Optional:_ `audiosr` (for the upsampling super-resolution model)
+
+You can install the dependencies via pip:
+
+```bash
+pip install numpy soundfile pyloudnorm torchaudio torch scipy numba pedalboard
+```
+
+If using the upsampling functionality, ensure that the `audiosr` package (or your alternative super-resolution model package) is installed and correctly configured.
+
+---
+
+## Usage
+
+For integration into your workflow, call the `post_process_stems` function with the following parameters:
+
+- `inst_path`: Path to the instrumental stem.
+- `vocal_path`: Path to the vocal stem.
+- `output_dir`: Directory for intermediate and processed outputs.
+- `final_output_path`: Path where the final output will be saved.
+- Other parameters such as `ddim_steps`, `guidance_scale`, `model_name`, `device`, and `seed` to control upsampling.
+
+Some of the files can be run directly for testing purposes, there is a __main__ in several of the files, but this was intended to be a quick test during development.
+---
+
+## Configuration
+
+Key parameters can be adjusted to tailor the post-processing pipeline to your needs:
+
+- **Upsampling Parameters:**  
+  - `ddim_steps`: Controls the number of diffusion steps.
+  - `guidance_scale`: Adjusts the model’s adherence to the input prompt.
+  - `model_name` and `device`: Specify the super-resolution model and compute device.
+- **Saturation Mix:**  
+  - Adjust `mix_pct` in `dynamic_saturator` for more or less effect.
+- **Loudness Target:**  
+  - Change the `target_lufs` in `level_to_lufs` to suit different loudness standards.
+- **Compression Settings:**  
+  - Modify `threshold_db`, `ratio`, `attack_us`, `release_ms`, and `mix_percent` in the buss compressor to refine dynamic control.
+- **Effect Chains:**  
+  - The Pedalboard effect chains in `post_process.py` can be further customized to achieve the desired tonal balance.
+
+---
+
+## Troubleshooting
+
+- **File I/O Delays:**  
+  - If you encounter issues with files not being written to disk promptly, note that the pipeline includes a brief sleep period to allow the OS to flush writes. Adjust this delay if necessary.
+- **Mono/Stereo Mismatches:**  
+  - The pipeline assumes specific input shapes (e.g., mono as a 1D array for upmixing). Ensure that input audio is pre-validated or adjust the processing functions accordingly.
+- **Dependency Issues:**  
+  - Ensure all required packages are installed. For the upsampling model, verify that your deep learning framework (PyTorch) and any custom modules (e.g., `audiosr`) are set up correctly.
+
+---
+
+## Credits for PostProc Module
+
+- **YuE** from the developers listed below this section, and the **YuE community** for early testing on the AI music generation pipeline.
+- **Carmine Silano** – Post-processing module and contributor to multiple effects
+- **Michael Gruhn** – Inspiration for the stereo upmixing delay and sum technique.
+- **Thomas Scott Stillwell** – Basis for the dynamic saturation and buss compressor techniques.
+- **Tobi** from **TwoShot.app** - Chunking pre-processor for AudioSR
+---
+
+This README provides an overview and detailed explanation of the post-processing capabilities in YuE-PostProc. For further questions or contributions, please refer to the project repository or contact the development team. Enjoy creating polished, professional audio with YuE!
+
 <p align="center">
     <img src="./assets/logo/白底.png" width="400" />
 </p>

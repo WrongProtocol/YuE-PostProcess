@@ -54,6 +54,19 @@ and replace it with
 -------------------------end analysis setup----------------
 pedalboard libraries
 pip install pedalboard
+-------------------------end pedalboard setup---------------
+audiosr change
+--in lowpass.py , find the line 
+    nyq = 0.5 * fs
+    hi = highcut / nyq
+
+and add this right beneath them:
+
+    if not (0 < hi < 1):
+        print(f"Invalid cutoff frequency computed: {hi}. Clamping to safe range.")
+        hi = max(0.01, min(hi, 0.99))
+        
+otherwise, you can run into some crashes when hi==1
 --------------------some test examples-------------------------------------
 a test prompt is:
 # This is the CoT mode.
