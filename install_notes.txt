@@ -1,0 +1,130 @@
+[after having a linux environment running with a basic ubuntu install]
+
+conda create -n ai python=3.11 -y && conda activate ai
+conda init
+
+[then close the shell using cmd "exit", and re-enter the shell using cmd "bash"]
+
+conda activate ai
+conda install gcc_linux-64 gxx_linux-64 -y
+conda install cuda -c nvidia -y
+pip install packaging
+pip uninstall -y ninja && pip install ninja
+apt-get update
+apt-get install git-lfs
+git lfs install
+
+[now, cd into the app workspace if you're not already there, which I default to /app]
+cd /app
+
+[if you don't already have git downloaded into the /app dir, do this step. otherwise, skip]
+git clone https://github.com/multimodal-art-projection/YuE.git && cd YuE
+
+
+
+pip install -r requirements.txt
+pip install flash-attn --no-build-isolation
+cd inference
+git clone https://huggingface.co/m-a-p/xcodec_mini_infer
+
+------------------------end initial setup--------------------------------
+This part pertains to AudioSR
+using the audiosr library requires a different version of transformers which breaks 
+infer.py, because YuE needs support for attn_implementation.  
+
+So after pip install audiosr, 
+i did pip install --upgrade transformers
+
+AudioSR also requires ffprobe which is part of ffmpeg
+apt-get install ffmpeg
+
+and that seemed to work when I ran audiosr from the command line. 
+Note outputs are only mono, even if inputs are stereo (or mono)
+-----------------------end audioSR setup-------------
+analysis required some additinal plugins 
+pip install essentia
+pip install cython
+pip install madmom
+
+this part is a weird one....was getting a crash, and the fix is:
+nano /root/miniconda3/envs/ai/lib/python3.11/site-packages/madmom/processors.py
+find the line that says "from collections import MutableSequence"
+and replace it with
+"from collections.abc import MutableSequence"
+-------------------------end analysis setup----------------
+pedalboard libraries
+pip install pedalboard
+-------------------------end pedalboard setup---------------
+audiosr change
+--in lowpass.py , find the line 
+    nyq = 0.5 * fs
+    hi = highcut / nyq
+
+and add this right beneath them:
+
+    if not (0 < hi < 1):
+        print(f"Invalid cutoff frequency computed: {hi}. Clamping to safe range.")
+        hi = max(0.01, min(hi, 0.99))
+        
+otherwise, you can run into some crashes when hi==1
+--------------------some test examples-------------------------------------
+a test prompt is:
+# This is the CoT mode.
+[from the inference folder]
+
+python infer.py \
+    --cuda_idx 0 \
+    --stage1_model m-a-p/YuE-s1-7B-anneal-en-cot \
+    --stage2_model m-a-p/YuE-s2-1B-general \
+    --genre_txt ../prompt_egs/genre.txt \
+    --lyrics_txt ../prompt_egs/lyrics.txt \
+    --run_n_segments 2 \
+    --stage2_batch_size 4 \
+    --output_dir ../output \
+    --max_new_tokens 3000 \
+    --repetition_penalty 1.1
+
+# This is the dual-track ICL mode.
+# To turn on dual-track mode, enable `--use_dual_tracks_prompt`
+# and provide `--vocal_track_prompt_path`, `--instrumental_track_prompt_path`, 
+# `--prompt_start_time`, and `--prompt_end_time`
+# The ref audio is taken from GTZAN test set.
+cd YuE/inference/
+python infer.py \
+    --cuda_idx 0 \
+    --stage1_model m-a-p/YuE-s1-7B-anneal-en-icl \
+    --stage2_model m-a-p/YuE-s2-1B-general \
+    --genre_txt ../prompt_egs/genre.txt \
+    --lyrics_txt ../prompt_egs/lyrics.txt \
+    --run_n_segments 2 \
+    --stage2_batch_size 4 \
+    --output_dir ../output \
+    --max_new_tokens 3000 \
+    --repetition_penalty 1.1 \
+    --use_dual_tracks_prompt \
+    --vocal_track_prompt_path ../prompt_egs/pop.00001.Vocals.mp3 \
+    --instrumental_track_prompt_path ../prompt_egs/pop.00001.Instrumental.mp3 \
+    --prompt_start_time 0 \
+    --prompt_end_time 30 
+
+# This is the single-track (mix/vocal/instrumental) ICL mode.
+# To turn on single-track ICL, enable `--use_audio_prompt`, 
+# and provide `--audio_prompt_path` , `--prompt_start_time`, and `--prompt_end_time`. 
+# The ref audio is taken from GTZAN test set.
+cd YuE/inference/
+python infer.py \
+    --cuda_idx 0 \
+    --stage1_model m-a-p/YuE-s1-7B-anneal-en-icl \
+    --stage2_model m-a-p/YuE-s2-1B-general \
+    --genre_txt ../prompt_egs/genre.txt \
+    --lyrics_txt ../prompt_egs/lyrics.txt \
+    --run_n_segments 2 \
+    --stage2_batch_size 4 \
+    --output_dir ../output \
+    --max_new_tokens 3000 \
+    --repetition_penalty 1.1 \
+    --use_audio_prompt \
+    --audio_prompt_path ../prompt_egs/pop.00001.mp3 \
+    --prompt_start_time 0 \
+    --prompt_end_time 30 
+
