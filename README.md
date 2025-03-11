@@ -2,7 +2,7 @@
 
 The YuE-PostProc module is the post-processing component of **YuE**, an AI music generator. This module is designed to take instrumental and vocal stems (or any similar audio stems) produced by earlier stages and apply a series of audio processing techniques—such as upsampling, stereo imaging, dynamic saturation, compression, EQ, and loudness leveling—to produce a finished, cohesive, and professional-sounding output.
 
-To run from docker: follow instructions in install_notes.txt.   For subsequent startups, "conda activate ai" first
+To run, follow instructions in install_notes.txt.   For subsequent startups (such as on a docker), "conda activate ai" first.
 ---
 
 ## Table of Contents
